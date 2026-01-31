@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>Snake Game</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: #111;
+      color: #eee;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      height: 100vh;
+      padding-top: 40px;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+      letter-spacing: 2px;
+    }
+
+    #info {
+      margin-bottom: 15px;
+      font-size: 14px;
+      color: #aaa;
+    }
+
+    #score-board {
+      margin-bottom: 15px;
+      font-size: 16px;
+    }
+
+    canvas {
+      background: #222;
+      border: 2px solid #555;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
+    }
+
+    #btn-wrap {
+      margin-top: 15px;
+    }
+
+    button {
+      background: #2ecc71;
+      border: none;
+      color: #111;
+      padding: 8px 16px;
+      font-size: 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    button:hover {
+      background: #27ae60;
+    }
+
+    button:active {
+      transform: scale(0.97);
+    }
+  </style>
+</head>
+<body>
+  <h1>Snake Game</h1>
+  <div id="info">방향키(↑ ↓ ← →)로 조작하세요. 벽이나 자기 몸에 부딪히면 게임 오버입니다.</div>
+  <div id="score-board">점수: <span id="score">0</span></div>
+  <canvas id="game" width="400" height="400"></canvas>
+  <div id="btn-wrap">
+    <button id="restart">다시 시작</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const scoreEl = document.getElementById("score");
+    const restartBtn = document.getElementById("restart");
+
+    const tileSize = 20; // 한 칸 크기
+    const tileCount = canvas.width / tileSize;
+
+    let snake;
+    let direction;
+    let nextDirection;
+    let food;
+    let score;
+    let gameLoop;
+    let speed = 120; // ms
+
+    function initGame() {
+      snake = [
+        { x: 8, y: 10 },
+        { x: 7, y: 10 },
+        { x: 6, y: 10 }
+      ];
+      direction = { x: 1, y: 0 }; // 오른쪽
+      nextDirection = { ...direction };
+      score = 0;
+      scoreEl.textContent = score;
+      placeFood();
+      if (gameLoop) clearInterval(gameLoop);
+      gameLoop = setInterval(update, speed);
+    }
+
+    function placeFood() {
+      while (true) {
+        const x = Math.floor(Math.random() * tileCount);
+        const y = Math.floor(Math.random() * tileCount);
+        const onSnake = snake.some(seg => seg.x === x && seg.y === y);
+        if (!onSnake) {
+          food = { x, y };
+          break;
+        }
+      }
+    }
+
+    function update() {
+      // 방향 업데이트(키 입력 반영)
+      direction = { ...nextDirection };
+
+      const head = { ...snake[0] };
+      head.x += direction.x;
+      head.y += direction.y;
+
+      // 벽 충돌 체크
+      if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
+        return gameOver();
+      }
+
+      // 자기 몸 충돌 체크
+      if (snake.some(seg => seg.x === head.x && seg.y === head.y)) {
+        return gameOver();
+      }
+
+      snake.unshift(head);
+
+      // 먹이 먹었는지 체크
+      if (head.x === food.x && head.y === food.y) {
+        score += 10;
+        scoreEl.textContent = score;
+        placeFood();
+      } else {
+        snake.pop();
+      }
+
+      draw();
+    }
+
+    function draw() {
+      // 배경
+      ctx.fillStyle = "#111";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // 그리드(선택사항)
+      ctx.strokeStyle = "#333";
+      for (let i = 0; i <= tileCount; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * tileSize, 0);
+        ctx.lineTo(i * tileSize, canvas.height);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(0, i * tileSize);
+        ctx.lineTo(canvas.width, i * tileSize);
+        ctx.stroke();
+      }
+
+      // 뱀
+      snake.forEach((seg, index) => {
+        ctx.fillStyle = index === 0 ? "#2ecc71" : "#27ae60";
+        ctx.fillRect(seg.x * tileSize, seg.y * tileSize, tileSize, tileSize);
+      });
+
+      // 먹이
+      ctx.fillStyle = "#e74c3c";
+      ctx.fillRect(food.x * tileSize, food.y * tileSize, tileSize, tileSize);
+    }
+
+    function gameOver() {
+      clearInterval(gameLoop);
+      ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = "#fff";
+      ctx.font = "28px system-ui";
+      ctx.textAlign = "center";
+      ctx.fillText("Game Over", canvas.width / 2, canvas.height / 2 - 10);
+      ctx.font = "18px system-ui";
+      ctx.fillText("점수: " + score, canvas.width / 2, canvas.height / 2 + 20);
+      ctx.fillText("다시 시작 버튼을 눌러주세요", canvas.width / 2, canvas.height / 2 + 50);
+    }
+
+    // 키보드 입력
+    window.addEventListener("keydown", (e) => {
+      switch (e.key) {
+        case "ArrowUp":
+          if (direction.y === 1) break; // 바로 반대 방향 방지
+          nextDirection = { x: 0, y: -1 };
+          break;
+        case "ArrowDown":
+          if (direction.y === -1) break;
+          nextDirection = { x: 0, y: 1 };
+          break;
+        case "ArrowLeft":
+          if (direction.x === 1) break;
+          nextDirection = { x: -1, y: 0 };
+          break;
+        case "ArrowRight":
+          if (direction.x === -1) break;
+          nextDirection = { x: 1, y: 0 };
+          break;
+      }
+    });
+
+    restartBtn.addEventListener("click", initGame);
+
+    // 시작
+    initGame();
+  </script>
+</body>
+</html>
